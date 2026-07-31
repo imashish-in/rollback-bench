@@ -128,12 +128,12 @@ If you use **RollbackBench** or its state pollution metrics ($\text{SPI}$, $\tex
 
 ```bibtex
 @article{kumar2026rollbackbench,
-  title={RollbackBench: Measuring State Pollution and Transactional Self-Healing in Tool-Calling LLM Agents},
+  title={RollbackBench: Measuring State Pollution and Transactional 
+         Self-Healing in Tool-Calling LLM Agents},
   author={Kumar, Ashish},
   journal={arXiv preprint},
   year={2026}
 }
-
 ```
 
 ---
@@ -142,6 +142,3 @@ If you use **RollbackBench** or its state pollution metrics ($\text{SPI}$, $\tex
 
 This project is licensed under the **Apache 2.0 License**.
 
-```
-
-```
