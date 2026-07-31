@@ -13,15 +13,18 @@ While conventional benchmarks evaluate agents using binary end-to-end task succe
 
 ## 🌟 Key Metrics
 
-### 1. State Pollution Index ($\text{SPI}$)
+### 1. State Pollution Index (SPI)
 Quantifies the ratio of uncompensated side-effects remaining in the environment following an aborted trajectory:
-$$\text{SPI} = 1 - \frac{\vert{}\mathcal{S}_\text{cleaned} \cap \mathcal{S}_\text{dirty}\vert{}}{\vert{}\mathcal{S}_\text{dirty}\vert{}} \quad \in [0, 1]$$
-* **$\text{SPI} = 0.0$ (Ideal):** Perfect zero-state restoration ($S_0$).
-* **$\text{SPI} = 1.0$ (Worst):** Complete execution abandonment and dirty state corruption.
 
-### 2. Cascading Error Recovery Rate ($\text{CERR}$)
+$$\text{SPI} = 1 - \frac{|S_{\text{cleaned}} \cap S_{\text{dirty}}|}{|S_{\text{dirty}}|}$$
+
+* **SPI = 0.0 (Ideal):** Perfect zero-state restoration ($S_0$).
+* **SPI = 1.0 (Worst):** Complete execution abandonment and dirty state corruption.
+
+### 2. Cascading Error Recovery Rate (CERR)
 Measures the percentage of failure-injected test scenarios in which the agent successfully restores the environment to clean zero-state ($S_0$):
-$$\text{CERR} = \frac{\sum_{m=1}^{M} \mathbb{I}(\text{SPI}_m = 0)}{M} \times 100\%$$
+
+$$\text{CERR} = \frac{\sum_{m=1}^{M} I(\text{SPI}_m = 0)}{M} \times 100$$
 
 ---
 
