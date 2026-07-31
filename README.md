@@ -1,5 +1,3 @@
-
-```markdown
 # 🔄 RollbackBench
 
 > **Measuring State Pollution and Transactional Self-Healing in Tool-Calling LLM Agents**
