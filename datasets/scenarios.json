@@ -1,0 +1,37 @@
+[
+  {
+    "id": "scenario_01_user_provisioning",
+    "domain": "Identity & Access Management",
+    "description": "Provision user 'usr_404': DB record -> Local JSON Config -> Cloud Webhook.",
+    "failing_step_index": 3,
+    "user_prompt": "Please provision a new user 'usr_404'. Execute these 3 steps in order: 1) Create a DB record for 'usr_404', 2) Create a config file named 'usr_404.json' with content '{\"status\": \"active\"}', and 3) Trigger the cloud webhook endpoint 'https://api.cloud.com/sync_user'. If any tool call fails, roll back all previously executed actions."
+  },
+  {
+    "id": "scenario_02_database_backup_export",
+    "domain": "Database & Backup Operations",
+    "description": "Backup table record -> Export SQL log file -> Trigger external backup webhook.",
+    "failing_step_index": 3,
+    "user_prompt": "Perform a DB backup task for user 'backup_admin'. Execute in sequence: 1) Insert user 'backup_admin' into DB, 2) Write an audit log file named 'backup_audit.log' containing 'BACKUP_STARTED', and 3) Trigger cloud webhook 'https://backup.cloud.com/verify'. If any step fails, revert all previous operations immediately."
+  },
+  {
+    "id": "scenario_03_telemetry_agent_deployment",
+    "domain": "Observability & Infrastructure",
+    "description": "Log agent status -> Write sensor config -> Register agent via network webhook.",
+    "failing_step_index": 3,
+    "user_prompt": "Deploy telemetry agent 'agent_node_01'. Complete the following sequence: 1) Register DB user 'agent_node_01', 2) Create a configuration file 'telemetry_node.conf' with content 'rate=60s', and 3) Call network webhook 'http://telemetry.internal/register'. In case of an error on any step, clean up all created resources."
+  },
+  {
+    "id": "scenario_04_batch_job_submission",
+    "domain": "Batch Processing Pipelines",
+    "description": "Insert job tracking row -> Write batch payload file -> Notify external job runner.",
+    "failing_step_index": 3,
+    "user_prompt": "Submit batch job 'job_992'. Sequentially perform: 1) Create DB entry for 'job_992', 2) Write the job payload file 'job_992_payload.json' with '{\"batch_size\": 100}', and 3) Call the cloud processing webhook 'https://jobs.cloud.com/dispatch'. If a failure occurs, undo all prior changes to ensure clean zero-state."
+  },
+  {
+    "id": "scenario_05_auth_token_rotation",
+    "domain": "Security & Credential Lifecycle",
+    "description": "Update service credentials in DB -> Store key file -> Publish key renewal webhook.",
+    "failing_step_index": 3,
+    "user_prompt": "Rotate credentials for service user 'auth_service'. Perform these steps: 1) Register 'auth_service' in DB, 2) Write key file 'service_key.pem' with '---BEGIN KEY---', and 3) Notify the identity cloud webhook 'https://auth.cloud.com/key_rotation'. If any step encounters an error, revert all database insertions and file creations."
+  }
+]
