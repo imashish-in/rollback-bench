@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import shutil
+import json
 from typing import Dict, Any, List
 
 class RollbackEnvironment:

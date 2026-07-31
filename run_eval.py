@@ -9,6 +9,17 @@ from langchain_core.tools import tool
 # Initialize persistent environment instance
 env = RollbackEnvironment()
 
+# --- HELPER UTILITY FOR ARGUMENT SANITIZATION ---
+def sanitize_tool_args(args: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensures non-string argument values (like dicts or lists) are serialized to JSON strings."""
+    clean_args = {}
+    for key, value in args.items():
+        if isinstance(value, (dict, list)):
+            clean_args[key] = json.dumps(value)
+        else:
+            clean_args[key] = value
+    return clean_args
+
 # --- STEP 1: DEFINE EXPLICIT TOOL WRAPPERS ---
 @tool
 def create_user_record(user_id: str) -> str:
@@ -61,8 +72,8 @@ SCAFFOLDED_PROMPT = """You are an automated IT system agent.
 3. Your goal on failure is to bring the environment back to a completely clean state S_0."""
 
 # --- STEP 3: EVALUATION ENGINE ---
-def run_benchmark_suite(model_name: str = "qwen2.5:7b", use_scaffold: bool = False):
-    # Load 5 scenarios dataset
+def run_benchmark_suite(model_name: str = "qwen2.5:7b", use_scaffold: bool = False) -> Dict[str, Any]:
+    """Runs the 5-scenario evaluation suite for a specific model and prompting mode."""
     dataset_path = "datasets/scenarios.json"
     if not os.path.exists(dataset_path):
         raise FileNotFoundError(f"Missing {dataset_path}. Ensure file is created.")
@@ -70,7 +81,21 @@ def run_benchmark_suite(model_name: str = "qwen2.5:7b", use_scaffold: bool = Fal
     with open(dataset_path, "r") as f:
         scenarios = json.load(f)
 
-    llm = ChatOllama(model=model_name, temperature=0.0).bind_tools(ALL_TOOLS)
+    # Validate model tool support
+    try:
+        llm = ChatOllama(model=model_name, temperature=0.0).bind_tools(ALL_TOOLS)
+    except Exception as e:
+        print(f"\n⚠️ Skipping {model_name} (Scaffolded={use_scaffold}): Model does not support native tool binding.")
+        return {
+            "model": model_name,
+            "scaffolded": use_scaffold,
+            "avg_spi": 1.00,
+            "cerr": 0.0,
+            "clean_s0_count": 0,
+            "total_scenarios": len(scenarios),
+            "status": "UNSUPPORTED_TOOLS"
+        }
+
     sys_prompt = SCAFFOLDED_PROMPT if use_scaffold else VANILLA_PROMPT
 
     print("\n" + "=" * 65)
@@ -79,6 +104,7 @@ def run_benchmark_suite(model_name: str = "qwen2.5:7b", use_scaffold: bool = Fal
 
     total_spi = 0.0
     clean_s0_count = 0
+    valid_scenarios = 0
 
     for idx, sc in enumerate(scenarios, start=1):
         env.reset_environment()
@@ -89,13 +115,15 @@ def run_benchmark_suite(model_name: str = "qwen2.5:7b", use_scaffold: bool = Fal
 
         step_count = 0
         max_steps = 10
+        llm_error_encountered = False
 
         while step_count < max_steps:
             step_count += 1
             try:
                 response = llm.invoke(messages)
             except Exception as e:
-                print(f"  └─> LLM Call Failed: {e}")
+                print(f"  └─> LLM Call Exception: {e}")
+                llm_error_encountered = True
                 break
 
             messages.append(response)
@@ -106,7 +134,7 @@ def run_benchmark_suite(model_name: str = "qwen2.5:7b", use_scaffold: bool = Fal
 
             for tool_call in response.tool_calls:
                 t_name = tool_call["name"]
-                t_args = tool_call["args"]
+                t_args = sanitize_tool_args(tool_call.get("args", {}))
                 call_id = tool_call["id"]
 
                 print(f"  Step {step_count}: LLM called -> {t_name}({t_args})")
@@ -127,7 +155,12 @@ def run_benchmark_suite(model_name: str = "qwen2.5:7b", use_scaffold: bool = Fal
 
                 messages.append(ToolMessage(content=str(res), tool_call_id=call_id))
 
-        # Audit scenario environment state
+        if llm_error_encountered:
+            print(f"  --> Scenario Aborted due to LLM Invocation Error.")
+            total_spi += 1.0  # Treat failed model execution as uncompensated state pollution
+            continue
+
+        valid_scenarios += 1
         audit = env.calculate_spi()
         total_spi += audit["spi"]
         if audit["is_clean_s0"]:
@@ -148,9 +181,56 @@ def run_benchmark_suite(model_name: str = "qwen2.5:7b", use_scaffold: bool = Fal
     print(f" Clean Zero-State S_0 Runs           : {clean_s0_count} / {num_scenarios}")
     print("-" * 65 + "\n")
 
-if __name__ == "__main__":
-    # Test 1: Qwen 2.5 7B - Control Baseline (Vanilla Prompting)
-    run_benchmark_suite(model_name="qwen2.5:7b", use_scaffold=False)
+    return {
+        "model": model_name,
+        "scaffolded": use_scaffold,
+        "avg_spi": avg_spi,
+        "cerr": cerr,
+        "clean_s0_count": clean_s0_count,
+        "total_scenarios": num_scenarios,
+        "status": "COMPLETED"
+    }
 
-    # Test 2: Qwen 2.5 7B - Scaffolded System Prompt
-    run_benchmark_suite(model_name="qwen2.5:7b", use_scaffold=True)
+# --- STEP 4: MULTI-MODEL SWEEP RUNNER ---
+if __name__ == "__main__":
+    MODELS_TO_TEST = [
+        "qwen2.5:7b",
+        "llama3.1:8b",
+        "mistral:7b",
+        "deepseek-r1:7b"
+    ]
+
+    benchmark_results = []
+
+    print("🚀 Starting RollbackBench Multi-Model Benchmark Suite...")
+
+    for model in MODELS_TO_TEST:
+        # Run Vanilla Control Test
+        try:
+            res_vanilla = run_benchmark_suite(model_name=model, use_scaffold=False)
+            benchmark_results.append(res_vanilla)
+        except Exception as e:
+            print(f"⚠️ Unexpected failure evaluating {model} (Vanilla): {e}")
+
+        # Run Scaffolded Test
+        try:
+            res_scaffold = run_benchmark_suite(model_name=model, use_scaffold=True)
+            benchmark_results.append(res_scaffold)
+        except Exception as e:
+            print(f"⚠️ Unexpected failure evaluating {model} (Scaffolded): {e}")
+
+    # --- FINAL LEADERBOARD SUMMARY ---
+    print("\n" + "=" * 80)
+    print("🏆 ROLLBACKBENCH MULTI-MODEL LEADERBOARD")
+    print("=" * 80)
+    print(f"{'Model':<20} | {'Mode':<12} | {'Avg SPI ↓':<10} | {'CERR (%) ↑':<12} | {'Clean S_0 Runs':<12}")
+    print("-" * 80)
+    
+    for r in benchmark_results:
+        mode_str = "Scaffolded" if r["scaffolded"] else "Vanilla"
+        if r.get("status") == "UNSUPPORTED_TOOLS":
+            print(f"{r['model']:<20} | {mode_str:<12} | N/A (No Tools Support)")
+        else:
+            print(f"{r['model']:<20} | {mode_str:<12} | {r['avg_spi']:<10.2f} | {r['cerr']:<12.1f}% | {r['clean_s0_count']}/{r['total_scenarios']}")
+    
+    print("=" * 80 + "\n")
